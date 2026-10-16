@@ -72,6 +72,17 @@ main{max-width:1040px;margin:18px auto 0;padding:0 16px 80px}
 .dmod input,.dmod select{width:100%;padding:9px 11px;font:inherit;font-size:.92rem;border:1.5px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--ink);margin:0}
 .dmod .r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:600px){.dmod .r2{grid-template-columns:1fr}}
+.licbar{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.licbadge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;font-size:.82rem;font-weight:700;background:#ffffff22;color:#fff;backdrop-filter:blur(4px)}
+.licbadge.ok{background:#0e9f6e40;border:1px solid #38d39f88}
+.licbadge.tr{background:#ffc93c33;border:1px solid #ffc93caa;color:#fff7d6}
+.licbadge.ex{background:#d6334f4d;border:1px solid #ff6b86aa}
+.btn.key{background:var(--hl);color:#131a3b;padding:7px 13px;font-size:.84rem;display:inline-flex;align-items:center;gap:6px}
+.btn.key:hover{filter:brightness(1.05)}
+.pwwrap{position:relative;margin:10px 0}
+.pwwrap input{margin:0;padding-right:44px}
+.pwtog{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--mu);cursor:pointer;font-size:1rem;padding:4px 8px;border-radius:6px}
+.pwtog:hover{background:var(--pt);color:var(--ink)}
 </style></head><body>
 <div id="app"></div>
 <script>
@@ -110,12 +121,23 @@ const P=[[],[],[],[],[],[]];
 // [5] Leaflet (Câu 1-6) -> [0] Sắp xếp (Câu 7-11) -> [1] Điền đoạn (Câu 12-16) -> [2] Đọc hiểu 1 (Câu 17-26) -> [4] Advertisement/Flyer (Câu 27-32) -> [3] Đọc hiểu 2 (Câu 33-40)
 const EXAM_ORDER=[5,0,1,2,4,3];
 
-/* ===== TRẠNG THÁI ===== */
+/* ===== TRẠNG THÁI & CHẾ ĐỘ DÙNG THỬ 10 NGÀY / MẬT KHẨU 365 NGÀY ===== */
+const TRIAL_DAYS=10,LIC_DAYS=365,DAY_MS=864e5,PASS_KEY='tien@1234';
 let S;try{S=JSON.parse(localStorage.tn26)}catch(e){}
-S=S||{d:{},u:1,x:Date.now()+365*864e5};
-if(!S.u||!S.x||Date.now()>=S.x){S.u=1;S.x=Date.now()+365*864e5}
+S=S||{d:{}};
+if(!S.d)S.d={};
 const save=()=>{try{localStorage.tn26=JSON.stringify(S)}catch(e){}};
-const unlocked=()=>1;
+if(!S.ts||typeof S.ts!=='number'){S.ts=Date.now();save()}
+const trialEnd=()=>S.ts+TRIAL_DAYS*DAY_MS;
+const isLicensed=()=>{
+ if(S.lic===1&&S.licExp&&Date.now()<S.licExp)return 1;
+ if(S.lic===1){S.lic=0;save()}
+ return 0;
+};
+const isTrialActive=()=>!isLicensed()&&Date.now()<trialEnd();
+const unlocked=()=>isLicensed()||isTrialActive();
+const daysLeft=ms=>Math.max(0,Math.ceil((ms-Date.now())/DAY_MS));
+const fmtDate=ms=>new Date(ms).toLocaleDateString('vi-VN');
 const $=s=>document.querySelector(s),topics=Object.keys(G);
 const gDone=()=>Object.keys(S.d).filter(k=>k[0]=='g').length,gTot=()=>topics.length*10;
 function rng(s){let a=0;for(const c of s)a=Math.imul(a^c.charCodeAt(0),2654435761)>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -138,10 +160,48 @@ const ring=p=>`<div class=ring><svg viewBox="0 0 100 100"><circle class="tr" cx=
 const toast=m=>{const e=document.createElement('div');e.className='toast';e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3400)};
 const perf=r=>r.s/r.t>=.8?'p3':r.s/r.t>=.5?'p2':'p1';
 const tile=(lab,r,fn,lv,off)=>off?`<button class="t empty" disabled>${lab}<small>trống</small></button>`:`<button class="t ${r?perf(r):''}" onclick="${fn}"${lv!=null?` style="--k:var(${LC[lv]})"`:''}>${lab}<small>${r?r.s+'/'+r.t:'Làm bài'}</small>${lv!=null?'<i class=lv></i>':''}</button>`;
-function nav(n){tab=n;home()}
+function askPw(cb){
+ const existing=$('#pw_mask');if(existing)existing.remove();
+ const must=!unlocked();
+ const m=document.createElement('div');m.className='mask';m.id='pw_mask';
+ const tEnd=fmtDate(trialEnd()),dLeft=daysLeft(trialEnd());
+ const desc=isLicensed()
+  ?`Bản quyền 365 ngày đang hoạt động (còn <b>${daysLeft(S.licExp)} ngày</b>, đến hết ngày <b>${fmtDate(S.licExp)}</b>). Nhập mật khẩu nếu bạn muốn gia hạn thêm 365 ngày kể từ hôm nay.`
+  :must
+   ?`Thời gian dùng thử <b>10 ngày</b> (từ ${fmtDate(S.ts)} đến ${tEnd}) đã hết hạn. Vui lòng nhập mật khẩu để mở khóa sử dụng tiếp <b>365 ngày</b>.`
+   :`Bạn đang trong <b>chế độ dùng thử 10 ngày</b> (còn <b>${dLeft} ngày</b>, đến hết ${tEnd}). Bạn có thể nhập mật khẩu ngay để kích hoạt <b>365 ngày</b> hoặc đóng lại để dùng thử tiếp.`;
+ m.innerHTML=`<div><h3 style="margin:0 0 6px;font-size:1.12rem">${must?'🔒 Hết hạn dùng thử 10 ngày':'🔑 Đăng nhập mật khẩu kích hoạt 365 ngày'}</h3><p class=sub style="margin:0 0 10px">${desc}</p><div class=pwwrap><input id=pw_inp type=password placeholder="Nhập mật khẩu mở khóa 365 ngày..." autocomplete=off><button type=button class=pwtog id=pw_tog aria-label="Hiện hoặc ẩn mật khẩu" title="Hiện/ẩn mật khẩu">👁</button></div><div class=err id=pw_err></div><div class=acts style="justify-content:flex-end;margin-top:8px">${must?'':`<button class="btn g" id=pw_no>Dùng thử tiếp (${dLeft} ngày)</button>`}<button class=btn id=pw_ok>Đăng nhập (365 ngày)</button></div></div>`;
+ document.body.appendChild(m);
+ const inp=$('#pw_inp');inp.focus();
+ $('#pw_tog').onclick=()=>{const isP=inp.type==='password';inp.type=isP?'text':'password';$('#pw_tog').textContent=isP?'🙈':'👁';inp.focus()};
+ const go=()=>{
+  const v=inp.value.trim();
+  if(v===PASS_KEY){
+   S.lic=1;S.licAt=Date.now();S.licExp=Date.now()+LIC_DAYS*DAY_MS;save();
+   m.remove();home();
+   toast('🎉 Đăng nhập thành công! Đã kích hoạt sử dụng 365 ngày (đến '+fmtDate(S.licExp)+').');
+   if(typeof cb==='function')cb();
+  }else{
+   $('#pw_err').textContent='Mật khẩu không đúng! Vui lòng kiểm tra và thử lại.';
+   inp.select();
+  }
+ };
+ $('#pw_ok').onclick=go;
+ inp.onkeydown=e=>{if(e.key==='Enter')go()};
+ if(!must){
+  $('#pw_no').onclick=()=>m.remove();
+  m.onclick=e=>{if(e.target===m)m.remove()};
+ }
+}
+function nav(n){if(!unlocked())return askPw(()=>{tab=n;home()});tab=n;home()}
 function home(){
  const D=['g','p','t'].map(cnt),T=TOT.map(f=>f()),all=D.reduce((a,b)=>a+b)/T.reduce((a,b)=>a+b);
- let h=`<div class=hero><div class=hin><div><h1>Ôn thi tốt nghiệp Tiếng Anh</h1><p>Năm học 2026-2027 · Chuẩn cấu trúc đề mẫu 40 câu (Đủ 80 bài Ngữ pháp, 120 bài Dạng bài, 20 Đề thi thử)</p><button class="btn doc" style="margin-top:10px;padding:7px 13px;font-size:.84rem" onclick="openDocxModal(1)">📄 Xuất đề / bài tập (.DOCX)</button></div>${ring(all)}</div></div><div class=steps>`+['Ngữ pháp (80 bài)','Dạng bài (120 bài)','Đề mẫu 40 câu (20 đề)'].map((x,i)=>`<button class="step ${tab==i?'on':''}" onclick="nav(${i})"><b>${x}</b><small>${D[i]}/${T[i]} bài đã làm</small><div class=mini><i style="width:${T[i]?D[i]/T[i]*100:0}%"></i></div></button>`).join('')+'</div><main>';
+ const licHtml=isLicensed()
+  ?`<span class="licbadge ok">✅ Bản quyền 365 ngày: còn ${daysLeft(S.licExp)} ngày (đến ${fmtDate(S.licExp)})</span><button class="btn key" onclick="askPw()">🔑 Gia hạn 365 ngày</button>`
+  :isTrialActive()
+   ?`<span class="licbadge tr">⏳ Dùng thử 10 ngày: còn ${daysLeft(trialEnd())} ngày (hết hạn ${fmtDate(trialEnd())})</span><button class="btn key" onclick="askPw()">🔑 Đăng nhập mật khẩu (365 ngày)</button>`
+   :`<span class="licbadge ex">🔒 Đã hết 10 ngày dùng thử — Cần đăng nhập mật khẩu để dùng tiếp 365 ngày</span><button class="btn key" onclick="askPw()">🔑 Đăng nhập ngay</button>`;
+ let h=`<div class=hero><div class=hin><div><h1>Ôn thi tốt nghiệp Tiếng Anh</h1><p>Năm học 2026-2027 · Chuẩn cấu trúc đề mẫu 40 câu (Đủ 80 bài Ngữ pháp, 120 bài Dạng bài, 20 Đề thi thử)</p><div class=licbar>${licHtml}<button class="btn doc" style="padding:7px 13px;font-size:.84rem" onclick="openDocxModal(1)">📄 Xuất đề / bài tập (.DOCX)</button></div></div>${ring(all)}</div></div><div class=steps>`+['Ngữ pháp (80 bài)','Dạng bài (120 bài)','Đề mẫu 40 câu (20 đề)'].map((x,i)=>`<button class="step ${tab==i?'on':''}" onclick="nav(${i})"><b>${x}</b><small>${D[i]}/${T[i]} bài đã làm</small><div class=mini><i style="width:${T[i]?D[i]/T[i]*100:0}%"></i></div></button>`).join('')+'</div><main>';
  if(tab==0){
   h+=`<div class=note><span>Mỗi chuyên đề gồm <b>10 bài</b> × <b>20 câu</b> (phân hóa đủ 4 cấp độ: Nhận biết, Thông hiểu, Vận dụng, Vận dụng cao).</span></div>`;
   h+='<div class=leg><span style="--k:var(--ok)">Từ 80% trở lên</span><span style="--k:var(--wa)">50 đến 79%</span><span style="--k:var(--no)">Dưới 50%</span></div><div class=cols>';
@@ -154,10 +214,11 @@ function home(){
    h+=`<div class=card style="--h:${HUE[(oi+2)%8]}"><div class=row><h2>Phần ${oi+1}: ${n}</h2><span>${b.length}/20 bài có đề</span></div><div class=mini><i style="width:${d*5}%"></i></div><div class=grid>${g}</div></div>`});h+='</div>'}
  if(tab==2){let g='';for(let i=0;i<20;i++)g+=tile('Đề '+(i+1),S.d['t:'+i],`runT(${i})`);
   h+=`<div class=note><span>Mỗi đề gồm đúng <b>6 phần, 40 câu, 50 phút</b> theo chuẩn mẫu đề tham khảo (Câu 1–6: Leaflet · Câu 7–11: Sắp xếp · Câu 12–16: Điền đoạn · Câu 17–26: Đọc hiểu 10 câu · Câu 27–32: Advertisement/Flyer · Câu 33–40: Đọc hiểu 8 câu). <b>Đề 1</b> chính là đề mẫu gốc đính kèm.</span></div><div class=card style="--h:232"><div class=grid>${g}</div></div>`}
- $('#app').innerHTML=h+'</main>';scrollTo(0,0)}
-const runG=(t,i)=>quiz(TN[t]+', bài '+(i+1),gEx(t,i),'g:'+t+':'+i);
-const runP=(ty,i)=>quiz(PT[ty]+', bài '+(i+1),pEx(ty,i).secs.map(s=>({h:s.h,p:s.p,qs:s.qs.map(q=>Object.assign({},q))})),'p:'+ty+':'+i);
-const runT=i=>{const s=tEx(i);s.length?quiz('Đề mẫu '+(i+1)+' (40 câu)',s,'t:'+i,50):toast('Chưa có dữ liệu cho đề này.')};
+ $('#app').innerHTML=h+'</main>';scrollTo(0,0);
+ if(!unlocked())askPw()}
+const runG=(t,i)=>{if(!unlocked())return askPw(()=>runG(t,i));quiz(TN[t]+', bài '+(i+1),gEx(t,i),'g:'+t+':'+i)};
+const runP=(ty,i)=>{if(!unlocked())return askPw(()=>runP(ty,i));quiz(PT[ty]+', bài '+(i+1),pEx(ty,i).secs.map(s=>({h:s.h,p:s.p,qs:s.qs.map(q=>Object.assign({},q))})),'p:'+ty+':'+i)};
+const runT=i=>{if(!unlocked())return askPw(()=>runT(i));const s=tEx(i);s.length?quiz('Đề mẫu '+(i+1)+' (40 câu)',s,'t:'+i,50):toast('Chưa có dữ liệu cho đề này.')};
 
 function askConfirm(msg,onYes){
  const m=document.createElement('div');m.className='mask';
@@ -388,6 +449,7 @@ function slugVi(s){
 }
 
 function openDocxModal(fromHome){
+ if(!unlocked())return askPw(()=>openDocxModal(fromHome));
  const m=document.createElement('div');m.className='mask dmod';
  let picker='';
  if(fromHome||!last){
